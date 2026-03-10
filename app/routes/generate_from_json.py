@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pathlib import Path
 
 from app.schemas import RenderRequest, RenderResponse
@@ -10,22 +10,22 @@ from app.services.report_rules import run_report_rules
 router = APIRouter()
 
 @router.post("", response_model=RenderResponse)
-def generate_from_json(request: RenderRequest):
-    template_path = Path("templates") / request.template_name
+def generate_from_json(request: Request, payload: RenderRequest):
+    template_path = Path("templates") / payload.template_name
 
     if not template_path.exists():
         raise HTTPException(status_code=404, detail="Template not found")
 
     try:
         output_path = render_docx(
-            template_name=request.template_name,
-            output_name=request.output_name,
-            tag_map=request.tags,
+            template_name=payload.template_name,
+            output_name=payload.output_name,
+            tag_map=payload.tags,
         )
 
         output_path = remove_leftover_tags_from_xml(output_path)
         postcheck = run_postcheck(output_path)
-        rule_errors = run_report_rules(output_path, request.tags)
+        rule_errors = run_report_rules(output_path, payload.tags)
 
         if not postcheck["ok"] or rule_errors:
             return RenderResponse(
@@ -37,10 +37,11 @@ def generate_from_json(request: RenderRequest):
             )
 
         filename = Path(output_path).name
+        download_url = str(request.base_url).rstrip("/") + f"/download/{filename}"
 
         return RenderResponse(
             ok=True,
-            output_path=f"/download/{filename}",
+            output_path=download_url,
             errors=[],
             leftover_xml_files=[],
             leftover_tags={},
