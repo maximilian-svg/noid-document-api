@@ -17,23 +17,16 @@ def generate_from_json(request: RenderRequest):
         raise HTTPException(status_code=404, detail="Template not found")
 
     try:
-        # 1. Rendera dokumentet från vald mall + tags
         output_path = render_docx(
             template_name=request.template_name,
             output_name=request.output_name,
             tag_map=request.tags,
         )
 
-        # 2. Extra XML-cleanup för kvarvarande placeholders
         output_path = remove_leftover_tags_from_xml(output_path)
-
-        # 3. Kör teknisk postcheck
         postcheck = run_postcheck(output_path)
-
-        # 4. Kör affärsregler / rapportregler
         rule_errors = run_report_rules(output_path, request.tags)
 
-        # 5. Blockera rapporten om något är fel
         if not postcheck["ok"] or rule_errors:
             return RenderResponse(
                 ok=False,
@@ -43,10 +36,11 @@ def generate_from_json(request: RenderRequest):
                 leftover_tags=postcheck["leftover_tags"],
             )
 
-        # 6. Returnera godkänd rapport
+        filename = Path(output_path).name
+
         return RenderResponse(
             ok=True,
-            output_path=str(output_path),
+            output_path=f"/download/{filename}",
             errors=[],
             leftover_xml_files=[],
             leftover_tags={},
