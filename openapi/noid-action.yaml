@@ -5,7 +5,7 @@ info:
   description: API för att skapa NOID-rapporter från JSON-taggar och DOCX-mallar.
 
 servers:
-  - url: https://DIN-RENDER-URL-HAR
+  - url: https://noid-document-api.onrender.com/
 
 paths:
   /template-tags/{template_name}:
