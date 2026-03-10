@@ -2,16 +2,44 @@ openapi: 3.1.0
 info:
   title: NOID Document API
   version: 1.0.0
-  description: API för att skapa och hämta NOID-rapporter.
+  description: API för att skapa NOID-rapporter från JSON-taggar och DOCX-mallar.
 
 servers:
-  - url: https://noid-document-api.onrender.com/
+  - url: https://DIN-RENDER-URL-HAR
 
 paths:
+  /template-tags/{template_name}:
+    get:
+      operationId: getTemplateTags
+      summary: Hämta alla taggar i en DOCX-mall
+      parameters:
+        - name: template_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lista med taggar i vald mall
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  template_name:
+                    type: string
+                  tag_count:
+                    type: integer
+                  tags:
+                    type: array
+                    items:
+                      type: string
+
   /generate-from-json:
     post:
       operationId: generateFromJson
-      summary: Generera en NOID-rapport från mall + taggar
+      summary: Generera en NOID-rapport
+      description: Skapar en DOCX-rapport från vald mall och ett taggobjekt.
       requestBody:
         required: true
         content:
@@ -60,30 +88,3 @@ paths:
                       type: array
                       items:
                         type: string
-
-  /template-tags/{template_name}:
-    get:
-      operationId: getTemplateTags
-      summary: Hämta alla taggar i en DOCX-mall
-      parameters:
-        - name: template_name
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Lista med taggar i vald mall
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  template_name:
-                    type: string
-                  tag_count:
-                    type: integer
-                  tags:
-                    type: array
-                    items:
-                      type: string
