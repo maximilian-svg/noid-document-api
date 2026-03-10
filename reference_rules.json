@@ -1,0 +1,42 @@
+{
+  "HRV_TOTAL_POWER_HRV_REF": {
+    "source": "pdf"
+  },
+  "HRV_RMSSD_REF": {
+    "source": "pdf"
+  },
+  "HRV_LF_HF_REF": {
+    "source": "pdf"
+  },
+
+  "EMOTIONAL_LF_HF_REF": {
+    "source": "pdf"
+  },
+
+  "VASCULAR_SYSTOLISKT_BLODTRYCK_REF": {
+    "source": "pdf"
+  },
+  "VASCULAR_DIASTOLISKT_BLODTRYCK_REF": {
+    "source": "pdf"
+  },
+
+  "VASCULAR_STIFFNESS_INDEX_SI_REF": {
+    "source": "pdf"
+  },
+
+  "VASCULAR_REFLECTION_INDEX_RI_REF": {
+    "source": "pdf"
+  },
+
+  "LIFESTYLE_ESTIMATED_TBW_PCT_REF": {
+    "source": "pdf"
+  },
+
+  "LIFESTYLE_ESTIMATED_ECW_PCT_REF": {
+    "source": "pdf"
+  },
+
+  "LIFESTYLE_ESTIMATED_ICW_PCT_REF": {
+    "source": "pdf"
+  }
+}
