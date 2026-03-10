@@ -5,7 +5,7 @@ info:
   description: API för att skapa NOID-rapporter från JSON-taggar och DOCX-mallar.
 
 servers:
-  - url: https://noid-document-api.onrender.com/
+  - url: https://noid-document-api.onrender.com
 
 paths:
   /template-tags/{template_name}:
@@ -39,7 +39,6 @@ paths:
     post:
       operationId: generateFromJson
       summary: Generera en NOID-rapport
-      description: Skapar en DOCX-rapport från vald mall och ett taggobjekt.
       requestBody:
         required: true
         content:
@@ -53,10 +52,8 @@ paths:
               properties:
                 template_name:
                   type: string
-                  example: NOID_Rapportmall_Bas_Maskinfyllbar_v12.docx
                 output_name:
                   type: string
-                  example: ola_basrapport.docx
                 tags:
                   type: object
                   additionalProperties:
