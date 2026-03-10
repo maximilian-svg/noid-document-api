@@ -2,18 +2,16 @@ openapi: 3.1.0
 info:
   title: NOID Document API
   version: 1.0.0
-  description: API för att skapa NOID-rapporter från JSON-taggar och DOCX-mallar.
+  description: API för att skapa och hämta NOID-rapporter.
 
 servers:
-  - url: https://DIN-DOMAN-HAR
-    description: Production server
+  - url: https://noid-document-api.onrender.com/
 
 paths:
   /generate-from-json:
     post:
       operationId: generateFromJson
       summary: Generera en NOID-rapport från mall + taggar
-      description: Skapar en DOCX-rapport från vald mall och ett taggobjekt.
       requestBody:
         required: true
         content:
@@ -27,25 +25,14 @@ paths:
               properties:
                 template_name:
                   type: string
-                  description: Namnet på DOCX-mallen i templates-mappen.
                   example: NOID_Rapportmall_Bas_Maskinfyllbar_v12.docx
                 output_name:
                   type: string
-                  description: Filnamn för den genererade rapporten.
                   example: ola_basrapport.docx
                 tags:
                   type: object
                   additionalProperties:
                     type: string
-                  description: Nyckel-värde-karta med DOCX-taggar och deras värden.
-                  example:
-                    CLIENT_NAME: Ola Torräng
-                    REPORT_DATE: 5 mars 2026
-                    REPORT_TYPE: Bas
-                    OVERVIEW_STRENGTHS: God kroppssammansättning och relativt stabil central cirkulation.
-                    OVERVIEW_FOCUS_AREA: Mage och tarm samt återhämtning.
-                    OVERVIEW_GOALS: Förbättra återhämtning, energinivå och tarmfunktion.
-                    CURRENT_STATUS_AND_PURPOSE: Snabb hälsokontroll inför tryckkammare.
       responses:
         "200":
           description: Resultat från rapportgenerering
@@ -56,25 +43,47 @@ paths:
                 properties:
                   ok:
                     type: boolean
-                    example: true
                   output_path:
                     type: string
                     nullable: true
-                    example: output/ola_basrapport.docx
                   errors:
                     type: array
                     items:
                       type: string
-                    example: []
                   leftover_xml_files:
                     type: array
                     items:
                       type: string
-                    example: []
                   leftover_tags:
                     type: object
                     additionalProperties:
                       type: array
                       items:
                         type: string
-                    example: {}
+
+  /template-tags/{template_name}:
+    get:
+      operationId: getTemplateTags
+      summary: Hämta alla taggar i en DOCX-mall
+      parameters:
+        - name: template_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lista med taggar i vald mall
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  template_name:
+                    type: string
+                  tag_count:
+                    type: integer
+                  tags:
+                    type: array
+                    items:
+                      type: string
