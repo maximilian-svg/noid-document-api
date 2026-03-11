@@ -97,8 +97,19 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties:
-                  type: string
+                properties:
+                  Bas:
+                    type: string
+                    example: NOID_Rapportmall_Bas_Maskinfyllbar_v13.docx
+                  Fokus:
+                    type: string
+                    example: NOID_Rapportmall_Fokus_Maskinfyllbar_v12.docx
+                  Optimal:
+                    type: string
+                    example: NOID_Rapportmall_Optimal_Maskinfyllbar_v12.docx
+                  Återbesök:
+                    type: string
+                    example: NOID_Rapportmall_Aterbesok_Maskinfyllbar_v12.docx
 
   /required-tags/{template_name}:
     get:
