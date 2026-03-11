@@ -85,3 +85,44 @@ paths:
                       type: array
                       items:
                         type: string
+
+  /template-map:
+    get:
+      operationId: getTemplateMap
+      summary: Hämta aktuell mall per rapporttyp
+      responses:
+        "200":
+          description: Mallkarta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+
+  /required-tags/{template_name}:
+    get:
+      operationId: getRequiredTags
+      summary: Hämta obligatoriska taggar för vald mall
+      parameters:
+        - name: template_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lista med obligatoriska taggar
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  template_name:
+                    type: string
+                  required_tag_count:
+                    type: integer
+                  required_tags:
+                    type: array
+                    items:
+                      type: string
