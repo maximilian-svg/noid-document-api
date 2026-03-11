@@ -9,7 +9,6 @@ TEMPLATE_DIR = Path("templates")
 
 @router.post("", response_model=ValidateResponse)
 def validate(request: ValidateRequest):
-
     template_path = TEMPLATE_DIR / request.template_name
 
     if not template_path.exists():
@@ -20,7 +19,7 @@ def validate(request: ValidateRequest):
 
     missing_tags = sorted(list(template_tags - incoming_tags))
     unknown_tags = sorted(list(incoming_tags - template_tags))
-    empty_tags = sorted([k for k,v in request.tags.items() if str(v).strip() == ""])
+    empty_tags = sorted([k for k, v in request.tags.items() if str(v).strip() == ""])
 
     ok = len(missing_tags) == 0 and len(empty_tags) == 0
 
