@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException
 from pathlib import Path
 
 from app.schemas import RenderRequest, RenderResponse
@@ -9,8 +9,9 @@ from app.services.report_rules import run_report_rules
 
 router = APIRouter()
 
+
 @router.post("", response_model=RenderResponse)
-def generate_from_json(request: Request, payload: RenderRequest):
+def generate_from_json(payload: RenderRequest):
     template_path = Path("templates") / payload.template_name
 
     if not template_path.exists():
@@ -37,11 +38,10 @@ def generate_from_json(request: Request, payload: RenderRequest):
             )
 
         filename = Path(output_path).name
-        download_url = str(request.base_url).rstrip("/") + f"/download/{filename}"
 
         return RenderResponse(
             ok=True,
-            output_path=download_url,
+            output_path=f"/download/{filename}",
             errors=[],
             leftover_xml_files=[],
             leftover_tags={},
