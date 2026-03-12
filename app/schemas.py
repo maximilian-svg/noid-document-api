@@ -21,6 +21,12 @@ class RenderRequest(BaseModel):
     tags: Dict[str, str]
 
 
+class GenerateStringRequest(BaseModel):
+    template_name: str
+    output_name: str
+    tags_json: str
+
+
 class RenderResponse(BaseModel):
     ok: bool
     output_path: Optional[str] = None
