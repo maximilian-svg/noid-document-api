@@ -2,12 +2,42 @@ openapi: 3.1.0
 info:
   title: NOID Document API
   version: 1.0.0
-  description: API för att skapa NOID-rapporter från JSON-taggar och DOCX-mallar.
+  description: API för att hämta mallar, taggar och generera NOID-rapporter.
 
 servers:
   - url: https://noid-document-api.onrender.com
 
 paths:
+  /template-map:
+    get:
+      operationId: getTemplateMap
+      summary: Hämta aktuell mall per rapporttyp
+      responses:
+        "200":
+          description: Mallkarta
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - Bas
+                  - Fokus
+                  - Optimal
+                  - Återbesök
+                properties:
+                  Bas:
+                    type: string
+                    example: NOID_Rapportmall_Bas_Maskinfyllbar_v13.docx
+                  Fokus:
+                    type: string
+                    example: NOID_Rapportmall_Fokus_Maskinfyllbar_v12.docx
+                  Optimal:
+                    type: string
+                    example: NOID_Rapportmall_Optimal_Maskinfyllbar_v12.docx
+                  Återbesök:
+                    type: string
+                    example: NOID_Rapportmall_Aterbesok_Maskinfyllbar_v12.docx
+
   /template-tags/{template_name}:
     get:
       operationId: getTemplateTags
@@ -20,7 +50,7 @@ paths:
             type: string
       responses:
         "200":
-          description: Lista med taggar i vald mall
+          description: Tagglista
           content:
             application/json:
               schema:
@@ -31,6 +61,33 @@ paths:
                   tag_count:
                     type: integer
                   tags:
+                    type: array
+                    items:
+                      type: string
+
+  /required-tags/{template_name}:
+    get:
+      operationId: getRequiredTags
+      summary: Hämta obligatoriska taggar för vald mall
+      parameters:
+        - name: template_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lista med obligatoriska taggar
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  template_name:
+                    type: string
+                  required_tag_count:
+                    type: integer
+                  required_tags:
                     type: array
                     items:
                       type: string
@@ -52,8 +109,10 @@ paths:
               properties:
                 template_name:
                   type: string
+                  example: NOID_Rapportmall_Bas_Maskinfyllbar_v13.docx
                 output_name:
                   type: string
+                  example: test_rapport.docx
                 tags:
                   type: object
                   additionalProperties:
@@ -85,55 +144,3 @@ paths:
                       type: array
                       items:
                         type: string
-
-  /template-map:
-    get:
-      operationId: getTemplateMap
-      summary: Hämta aktuell mall per rapporttyp
-      responses:
-        "200":
-          description: Mallkarta
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  Bas:
-                    type: string
-                    example: NOID_Rapportmall_Bas_Maskinfyllbar_v13.docx
-                  Fokus:
-                    type: string
-                    example: NOID_Rapportmall_Fokus_Maskinfyllbar_v12.docx
-                  Optimal:
-                    type: string
-                    example: NOID_Rapportmall_Optimal_Maskinfyllbar_v12.docx
-                  Återbesök:
-                    type: string
-                    example: NOID_Rapportmall_Aterbesok_Maskinfyllbar_v12.docx
-
-  /required-tags/{template_name}:
-    get:
-      operationId: getRequiredTags
-      summary: Hämta obligatoriska taggar för vald mall
-      parameters:
-        - name: template_name
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Lista med obligatoriska taggar
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  template_name:
-                    type: string
-                  required_tag_count:
-                    type: integer
-                  required_tags:
-                    type: array
-                    items:
-                      type: string

@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException
 from pathlib import Path
+from fastapi import APIRouter, HTTPException
 from app.services.tag_extractor import extract_tags_from_docx
 
 router = APIRouter()
@@ -17,7 +17,7 @@ COMMON_REQUIRED_TAGS = {
     "TEST_SUMMARY",
     "DIET_RECOMMENDATIONS_SHORT",
     "SUPPLEMENT_PLAN_SHORT",
-    "CURRENT_STATUS_AND_PURPOSE"
+    "CURRENT_STATUS_AND_PURPOSE",
 }
 
 @router.get("/{template_name}")
@@ -33,5 +33,5 @@ def get_required_tags(template_name: str):
     return {
         "template_name": template_name,
         "required_tag_count": len(required_tags),
-        "required_tags": required_tags
+        "required_tags": required_tags,
     }
