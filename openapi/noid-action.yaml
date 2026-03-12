@@ -27,16 +27,12 @@ paths:
                 properties:
                   Bas:
                     type: string
-                    example: NOID_Rapportmall_Bas_Maskinfyllbar_v13.docx
                   Fokus:
                     type: string
-                    example: NOID_Rapportmall_Fokus_Maskinfyllbar_v12.docx
                   Optimal:
                     type: string
-                    example: NOID_Rapportmall_Optimal_Maskinfyllbar_v12.docx
                   Återbesök:
                     type: string
-                    example: NOID_Rapportmall_Aterbesok_Maskinfyllbar_v12.docx
 
   /template-tags/{template_name}:
     get:
@@ -105,7 +101,7 @@ paths:
               required:
                 - template_name
                 - output_name
-                - tags
+                - tags_json
               properties:
                 template_name:
                   type: string
@@ -113,10 +109,10 @@ paths:
                 output_name:
                   type: string
                   example: test_rapport.docx
-                tags:
-                  type: object
-                  additionalProperties:
-                    type: string
+                tags_json:
+                  type: string
+                  description: JSON-sträng med alla taggar och värden
+                  example: "{\"CLIENT_NAME\":\"Test Person\",\"REPORT_DATE\":\"11 mars 2026\",\"REPORT_TYPE\":\"Bas\"}"
       responses:
         "200":
           description: Resultat från rapportgenerering
