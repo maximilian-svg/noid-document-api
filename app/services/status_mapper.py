@@ -1,16 +1,10 @@
-def to_status_symbol(value: str) -> str:
-    if not value:
+def normalize_status_to_symbol(value: str) -> str:
+    if value is None:
         return ""
 
     v = str(value).strip().lower()
 
     mapping = {
-        "stabil": "🟢",
-        "följ upp": "🟡",
-        "följupp": "🟡",
-        "atgarda": "🟠",
-        "åtgärda": "🟠",
-        "prioritet": "🔴",
         "1": "🟢",
         "2": "🟡",
         "3": "🟠",
@@ -18,9 +12,13 @@ def to_status_symbol(value: str) -> str:
         "normal": "🟢",
         "borderline": "🟡",
         "abnormal": "🟠",
-        "critical": "🔴",
         "high": "🔴",
+        "critical": "🔴",
         "severe": "🔴",
+        "stabil": "🟢",
+        "följ upp": "🟡",
+        "åtgärda": "🟠",
+        "prioritet": "🔴",
     }
 
     return mapping.get(v, value)

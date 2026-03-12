@@ -8,6 +8,12 @@ from app.services.docx_renderer import render_docx
 from app.services.postcheck_service import run_postcheck
 from app.services.xml_cleanup_service import remove_leftover_tags_from_xml
 from app.services.report_rules import run_report_rules
+from app.services.status_mapper import normalize_status_to_symbol
+from app.services.coverage_validator import (
+    validate_half_filled_rows,
+    validate_section_coverage,
+    coverage_errors,
+)
 
 router = APIRouter()
 
@@ -45,7 +51,29 @@ def generate_from_json(payload: GenerateStringRequest):
                 leftover_tags={},
             )
 
-        normalized_tags = {str(k): str(v) for k, v in tags.items()}
+        normalized_tags = {}
+
+        for key, value in tags.items():
+            key_str = str(key)
+            value_str = "" if value is None else str(value).strip()
+
+            if key_str.endswith("_STATUS") and value_str:
+                value_str = normalize_status_to_symbol(value_str)
+
+            normalized_tags[key_str] = value_str
+
+        row_errors = validate_half_filled_rows(normalized_tags)
+        coverage = validate_section_coverage(normalized_tags)
+        section_errors = coverage_errors(coverage, min_ratio=0.5)
+
+        if row_errors or section_errors:
+            return RenderResponse(
+                ok=False,
+                output_path=None,
+                errors=row_errors + section_errors,
+                leftover_xml_files=[],
+                leftover_tags={},
+            )
 
         output_path = render_docx(
             template_name=payload.template_name,
