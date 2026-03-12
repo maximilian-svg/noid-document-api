@@ -9,11 +9,7 @@ from app.services.postcheck_service import run_postcheck
 from app.services.xml_cleanup_service import remove_leftover_tags_from_xml
 from app.services.report_rules import run_report_rules
 from app.services.status_mapper import normalize_status_to_symbol
-from app.services.coverage_validator import (
-    validate_half_filled_rows,
-    validate_section_coverage,
-    coverage_errors,
-)
+from app.services.payload_guard import validate_payload_against_template
 
 router = APIRouter()
 
@@ -52,7 +48,6 @@ def generate_from_json(payload: GenerateStringRequest):
             )
 
         normalized_tags = {}
-
         for key, value in tags.items():
             key_str = str(key)
             value_str = "" if value is None else str(value).strip()
@@ -62,29 +57,22 @@ def generate_from_json(payload: GenerateStringRequest):
 
             normalized_tags[key_str] = value_str
 
-        row_errors = validate_half_filled_rows(normalized_tags)
-        coverage = validate_section_coverage(normalized_tags)
-        section_errors = coverage_errors(coverage, min_ratio=0.5)
-
-        if row_errors or section_errors:
-            return RenderResponse(
-                ok=False,
-                output_path=None,
-                errors=row_errors + section_errors,
-                leftover_xml_files=[],
-                leftover_tags={},
-            )
+        # HÅRD 1:1-SPÄRR MOT MALLEN
+        validated_payload, template_tags = validate_payload_against_template(
+            payload.template_name,
+            normalized_tags,
+        )
 
         output_path = render_docx(
             template_name=payload.template_name,
             output_name=payload.output_name,
-            tag_map=normalized_tags,
+            tag_map=validated_payload,
         )
 
         output_path = remove_leftover_tags_from_xml(output_path)
 
         postcheck = run_postcheck(output_path)
-        rule_errors = run_report_rules(output_path, normalized_tags)
+        rule_errors = run_report_rules(output_path, validated_payload)
 
         if not postcheck["ok"] or rule_errors:
             return RenderResponse(
