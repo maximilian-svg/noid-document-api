@@ -1,12 +1,21 @@
 from fastapi import APIRouter
+from pydantic import BaseModel
 
 router = APIRouter()
 
-@router.get("")
+
+class TemplateMapResponse(BaseModel):
+    bas: str
+    fokus: str
+    optimal: str
+    aterbesok: str
+
+
+@router.get("/template-map", response_model=TemplateMapResponse)
 def get_template_map():
-    return {
-        "Bas": "NOID_Rapportmall_Bas_Maskinfyllbar_v13.docx",
-        "Fokus": "NOID_Rapportmall_Fokus_Maskinfyllbar_v12.docx",
-        "Optimal": "NOID_Rapportmall_Optimal_Maskinfyllbar_v12.docx",
-        "Återbesök": "NOID_Rapportmall_Aterbesok_Maskinfyllbar_v12.docx"
-    }
+    return TemplateMapResponse(
+        bas="NOID_Rapportmall_Bas_Maskinfyllbar_v13.docx",
+        fokus="",
+        optimal="",
+        aterbesok="",
+    )

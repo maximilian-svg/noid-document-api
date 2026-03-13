@@ -1,22 +1,28 @@
-from pathlib import Path
 from fastapi import APIRouter, HTTPException
-from app.services.tag_extractor import extract_tags_from_docx
+from pydantic import BaseModel
+from typing import List
+
+from app.services.payload_guard import extract_template_tags
 
 router = APIRouter()
 
-TEMPLATE_DIR = Path("templates")
 
-@router.get("/{template_name}")
+class TemplateTagsResponse(BaseModel):
+    template_name: str
+    tag_count: int
+    tags: List[str]
+
+
+@router.get("/template-tags/{template_name}", response_model=TemplateTagsResponse)
 def get_template_tags(template_name: str):
-    template_path = TEMPLATE_DIR / template_name
-
-    if not template_path.exists():
-        raise HTTPException(status_code=404, detail="Template not found")
-
-    tags = sorted(list(extract_tags_from_docx(str(template_path))))
-
-    return {
-        "template_name": template_name,
-        "tag_count": len(tags),
-        "tags": tags,
-    }
+    try:
+        tags = extract_template_tags(template_name)
+        return TemplateTagsResponse(
+            template_name=template_name,
+            tag_count=len(tags),
+            tags=tags,
+        )
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Template not found: {template_name}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Kunde inte läsa malltaggar: {e}")
