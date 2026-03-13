@@ -1,177 +1,204 @@
+import json
+import re
+import zipfile
+from collections import defaultdict
 from pathlib import Path
-from app.services.tag_extractor import extract_tags_from_docx
+from typing import Dict, List, Optional
 
 
-SUPPLEMENT_ROWS = {
-    1: ["SUPPLEMENT_1_NAME", "SUPPLEMENT_1_DOSAGE", "SUPPLEMENT_1_DURATION", "SUPPLEMENT_1_PURPOSE"],
-    2: ["SUPPLEMENT_2_NAME", "SUPPLEMENT_2_DOSAGE", "SUPPLEMENT_2_DURATION", "SUPPLEMENT_2_PURPOSE"],
-    3: ["SUPPLEMENT_3_NAME", "SUPPLEMENT_3_DOSAGE", "SUPPLEMENT_3_DURATION", "SUPPLEMENT_3_PURPOSE"],
-    4: ["SUPPLEMENT_4_NAME", "SUPPLEMENT_4_DOSAGE", "SUPPLEMENT_4_DURATION", "SUPPLEMENT_4_PURPOSE"],
-    5: ["SUPPLEMENT_5_NAME", "SUPPLEMENT_5_DOSAGE", "SUPPLEMENT_5_DURATION", "SUPPLEMENT_5_PURPOSE"],
-    6: ["SUPPLEMENT_6_NAME", "SUPPLEMENT_6_DOSAGE", "SUPPLEMENT_6_DURATION", "SUPPLEMENT_6_PURPOSE"],
-}
+BASE_DIR = Path(__file__).resolve().parents[2]
+TEMPLATES_DIR = BASE_DIR / "templates"
+TAG_RE = re.compile(r"\{\{([A-Z0-9_]+)\}\}")
 
-CLINIC_SUPPORT_GROUPS = [
-    ["INTERVENTION_PLASMALJUS_PURPOSE"],
-    ["INTERVENTION_PAPIMI_PURPOSE"],
-    ["INTERVENTION_BIOFEEDBACK_PURPOSE"],
-    ["INTERVENTION_OTHER_NAME", "INTERVENTION_OTHER_PURPOSE"],
-]
+OPTIONAL_ROW_PREFIXES = (
+    "SUPPLEMENT_",
+    "TILLSKOTT_",
+    "CLINIC_SUPPORT_",
+    "KLINIKSTOD_",
+    "KLINIKSTÖD_",
+)
 
 
-def get_template_tags_for_template(template_name: str) -> list[str]:
-    template_path = Path("templates") / template_name
-    return sorted(list(extract_tags_from_docx(str(template_path))))
+def _normalize(value: str) -> str:
+    return (
+        value.upper()
+        .replace("Å", "A")
+        .replace("Ä", "A")
+        .replace("Ö", "O")
+    )
 
 
-def _normalize_payload(template_tags: list[str], incoming_payload: dict) -> dict:
-    payload = {}
+def load_tags_json(tags_json: str) -> Dict[str, str]:
+    try:
+        data = json.loads(tags_json)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"tags_json är inte giltig JSON: {e}")
+
+    if not isinstance(data, dict):
+        raise ValueError("tags_json måste innehålla ett JSON-objekt.")
+
+    cleaned: Dict[str, str] = {}
+    for key, value in data.items():
+        cleaned[str(key)] = "" if value is None else str(value).strip()
+    return cleaned
+
+
+def extract_template_tags(template_name: str) -> List[str]:
+    template_path = TEMPLATES_DIR / template_name
+    if not template_path.exists():
+        raise FileNotFoundError(f"Mallen finns inte: {template_path}")
+
+    tags = set()
+    with zipfile.ZipFile(template_path, "r") as zf:
+        for name in zf.namelist():
+            if name.endswith(".xml"):
+                text = zf.read(name).decode("utf-8", errors="ignore")
+                for match in TAG_RE.findall(text):
+                    tags.add(match)
+
+    return sorted(tags)
+
+
+def _optional_row_key(tag: str) -> Optional[str]:
+    normalized = _normalize(tag)
+    row_numbers = re.findall(r"\d+", normalized)
+    if not row_numbers:
+        return None
+
+    for prefix in OPTIONAL_ROW_PREFIXES:
+        if prefix in normalized:
+            return f"{prefix}{row_numbers[0]}"
+    return None
+
+
+def validate_tags_json_against_template(template_name: str, tags_json: str) -> Dict[str, object]:
+    payload = load_tags_json(tags_json)
+    template_tags = extract_template_tags(template_name)
+
+    errors: List[str] = []
+
+    missing_keys = sorted(set(template_tags) - set(payload.keys()))
+    extra_keys = sorted(set(payload.keys()) - set(template_tags))
+
+    if missing_keys:
+        errors.append("Payload saknar malltaggar: " + ", ".join(missing_keys[:25]))
+    if extra_keys:
+        errors.append("Payload innehåller okända taggar: " + ", ".join(extra_keys[:25]))
+
+    optional_groups = defaultdict(list)
+
+    filled_tag_count = 0
+    result_count = 0
+    status_count = 0
+    comment_count = 0
+
     for tag in template_tags:
-        value = incoming_payload.get(tag, "")
-        payload[tag] = "" if value is None else str(value).strip()
-    return payload
+        value = payload.get(tag, "").strip()
 
+        if value:
+            filled_tag_count += 1
 
-def _optional_empty_tags(template_set: set[str]) -> set[str]:
-    optional_tags = set()
+        if "{{" in value or "}}" in value:
+            errors.append(f"Värdet för {tag} innehåller kvarvarande malltagg.")
 
-    for row_tags in SUPPLEMENT_ROWS.values():
-        for tag in row_tags:
-            if tag in template_set:
-                optional_tags.add(tag)
+        row_key = _optional_row_key(tag)
+        if row_key:
+            optional_groups[row_key].append((tag, value))
+        else:
+            if value == "":
+                errors.append(f"Obligatorisk tagg är tom: {tag}")
 
-    for group in CLINIC_SUPPORT_GROUPS:
-        for tag in group:
-            if tag in template_set:
-                optional_tags.add(tag)
+        if tag.endswith("_RESULT") and value:
+            result_count += 1
 
-    return optional_tags
+        if tag.endswith("_STATUS") and value:
+            status_count += 1
 
+        if tag.startswith("COMMENT_") and value:
+            comment_count += 1
 
-def _validate_exact_template_match(template_tags: list[str], incoming_payload: dict) -> list[str]:
-    errors = []
-    template_set = set(template_tags)
-    payload_set = set(incoming_payload.keys())
+    for row_key, row_items in optional_groups.items():
+        filled = [tag for tag, value in row_items if value]
+        empty = [tag for tag, value in row_items if not value]
 
-    missing = sorted(list(template_set - payload_set))
-    extra = sorted(list(payload_set - template_set))
-
-    if missing:
-        errors.append(f"Saknade taggar: {missing}")
-
-    if extra:
-        errors.append(f"Extra taggar: {extra}")
-
-    if len(incoming_payload.keys()) != len(template_tags):
-        errors.append(
-            f"Fel antal nycklar: payload={len(incoming_payload.keys())} mall={len(template_tags)}"
-        )
-
-    return errors
-
-
-def _validate_non_empty_required_tags(template_tags: list[str], payload: dict) -> list[str]:
-    errors = []
-    template_set = set(template_tags)
-    optional_tags = _optional_empty_tags(template_set)
-
-    for tag in template_tags:
-        if tag in optional_tags:
-            continue
-
-        if payload.get(tag, "") == "":
-            errors.append(f"Tom obligatorisk tagg: {tag}")
-
-    return errors
-
-
-def _validate_measurement_rows(template_tags: list[str], payload: dict) -> list[str]:
-    errors = []
-    template_set = set(template_tags)
-
-    for tag in template_tags:
-        if not tag.endswith("_RESULT"):
-            continue
-
-        base = tag[:-7]
-        result_key = f"{base}_RESULT"
-        status_key = f"{base}_STATUS"
-        ref_key = f"{base}_REF"
-
-        result_val = payload.get(result_key, "").strip()
-        status_exists = status_key in template_set
-        ref_exists = ref_key in template_set
-
-        status_val = payload.get(status_key, "").strip() if status_exists else ""
-        ref_val = payload.get(ref_key, "").strip() if ref_exists else ""
-
-        if result_val and status_exists and not status_val:
-            errors.append(f"STOPP: {base} har RESULT men saknar STATUS")
-
-        if status_val and not result_val:
-            errors.append(f"STOPP: {base} har STATUS men saknar RESULT")
-
-        if result_val and ref_exists and not ref_val:
-            errors.append(f"STOPP: {base} har RESULT men saknar REF")
-
-    return errors
-
-
-def _validate_supplement_rows(template_tags: list[str], payload: dict) -> list[str]:
-    errors = []
-    template_set = set(template_tags)
-
-    for row_number, row_tags in SUPPLEMENT_ROWS.items():
-        existing_tags = [tag for tag in row_tags if tag in template_set]
-        if not existing_tags:
-            continue
-
-        filled = [tag for tag in existing_tags if payload.get(tag, "").strip() != ""]
-
-        if filled and len(filled) != len(existing_tags):
+        if filled and empty:
             errors.append(
-                f"STOPP: tillskottsrad {row_number} är halvfylld. Fyllda fält: {filled}"
+                f"Halvfylld städbar rad ({row_key}). Fyllda: {', '.join(filled)} | Tomma: {', '.join(empty)}"
             )
 
-    return errors
+    for tag in template_tags:
+        value = payload.get(tag, "").strip()
+
+        if tag.endswith("_RESULT") and value:
+            base = tag[:-7]
+            status_tag = f"{base}_STATUS"
+            ref_tag = f"{base}_REF"
+
+            if status_tag in template_tags and not payload.get(status_tag, "").strip():
+                errors.append(f"{tag} har värde men {status_tag} saknas.")
+
+            if ref_tag in template_tags and not payload.get(ref_tag, "").strip():
+                errors.append(f"{tag} har värde men {ref_tag} saknas.")
+
+        if tag.endswith("_STATUS") and value:
+            result_tag = f"{tag[:-7]}_RESULT"
+            if result_tag in template_tags and not payload.get(result_tag, "").strip():
+                errors.append(f"{tag} har värde men {result_tag} saknas.")
+
+        if tag.endswith("_REF") and value:
+            result_tag = f"{tag[:-4]}_RESULT"
+            if result_tag in template_tags and not payload.get(result_tag, "").strip():
+                errors.append(f"{tag} har värde men {result_tag} saknas.")
+
+    if result_count == 0:
+        errors.append("Minst ett ..._RESULT måste vara ifyllt före generering.")
+
+    deduped_errors = []
+    seen = set()
+    for err in errors:
+        if err not in seen:
+            deduped_errors.append(err)
+            seen.add(err)
+
+    return {
+        "ok": len(deduped_errors) == 0,
+        "errors": deduped_errors,
+        "template_name": template_name,
+        "tag_count": len(template_tags),
+        "filled_tag_count": filled_tag_count,
+        "result_count": result_count,
+        "status_count": status_count,
+        "comment_count": comment_count,
+    }
 
 
-def _validate_clinic_support_rows(template_tags: list[str], payload: dict) -> list[str]:
-    errors = []
-    template_set = set(template_tags)
+def validate_payload_against_template(
+    template_name: Optional[str] = None,
+    tags_json: Optional[str] = None,
+    payload: Optional[Dict[str, str]] = None,
+    *args,
+    **kwargs,
+) -> Dict[str, object]:
+    if template_name is None and len(args) >= 1:
+        template_name = args[0]
 
-    for group in CLINIC_SUPPORT_GROUPS:
-        existing_tags = [tag for tag in group if tag in template_set]
-        if not existing_tags:
-            continue
+    if tags_json is None and len(args) >= 2 and isinstance(args[1], str):
+        possible_json = args[1]
+        if possible_json.strip().startswith("{"):
+            tags_json = possible_json
 
-        filled = [tag for tag in existing_tags if payload.get(tag, "").strip() != ""]
+    if payload is None:
+        payload = kwargs.get("payload") or kwargs.get("tags")
 
-        if filled and len(filled) != len(existing_tags):
-            errors.append(
-                f"STOPP: klinikstödsrad är halvfylld. Fyllda fält: {filled}"
-            )
+    if payload is None and len(args) >= 2 and isinstance(args[1], dict):
+        payload = args[1]
 
-    return errors
+    if template_name is None:
+        raise ValueError("template_name saknas i validate_payload_against_template.")
 
+    if tags_json is None:
+        if payload is None:
+            raise ValueError("Antingen tags_json eller payload måste skickas.")
+        tags_json = json.dumps(payload, ensure_ascii=False)
 
-def validate_payload_against_template(template_name: str, incoming_payload: dict):
-    template_tags = get_template_tags_for_template(template_name)
-
-    errors = []
-    errors.extend(_validate_exact_template_match(template_tags, incoming_payload))
-
-    payload = _normalize_payload(template_tags, incoming_payload)
-
-    errors.extend(_validate_non_empty_required_tags(template_tags, payload))
-    errors.extend(_validate_measurement_rows(template_tags, payload))
-    errors.extend(_validate_supplement_rows(template_tags, payload))
-    errors.extend(_validate_clinic_support_rows(template_tags, payload))
-
-    if errors:
-        raise Exception(
-            "STOPP: Payloaden är inte en fullständig 1:1-spegel av mallens tagglista.\n"
-            + "\n".join(errors)
-        )
-
-    return payload, template_tags
+    return validate_tags_json_against_template(template_name, tags_json)

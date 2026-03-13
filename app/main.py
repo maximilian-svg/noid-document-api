@@ -1,21 +1,28 @@
 from fastapi import FastAPI
-from app.routes.validate import router as validate_router
-from app.routes.render import router as render_router
-from app.routes.template_tags import router as template_tags_router
-from app.routes.generate_from_json import router as generate_from_json_router
-from app.routes.download import router as download_router
-from app.routes.template_map import router as template_map_router
-from app.routes.required_tags import router as required_tags_router
 
 app = FastAPI(title="NOID Document API")
 
-app.include_router(validate_router, prefix="/validate", tags=["validate"])
-app.include_router(render_router, prefix="/render", tags=["render"])
-app.include_router(template_tags_router, prefix="/template-tags", tags=["template-tags"])
-app.include_router(generate_from_json_router, prefix="/generate-from-json", tags=["generate-from-json"])
-app.include_router(download_router, prefix="/download", tags=["download"])
-app.include_router(template_map_router, prefix="/template-map", tags=["template-map"])
-app.include_router(required_tags_router, prefix="/required-tags", tags=["required-tags"])
+
+def safe_include(module_path: str, tag: str, prefix: str = "") -> None:
+    try:
+        module = __import__(module_path, fromlist=["router"])
+        app.include_router(module.router, prefix=prefix, tags=[tag])
+        print(f"Loaded router: {module_path}")
+    except Exception as e:
+        print(f"Skipped router {module_path}: {e}")
+
+
+for module_path, tag, prefix in [
+    ("app.routes.render", "render", "/render"),
+    ("app.routes.validate", "validate", ""),
+    ("app.routes.template_map", "template-map", "/template-map"),
+    ("app.routes.required_tags", "required-tags", ""),
+    ("app.routes.template_tags", "template-tags", ""),
+    ("app.routes.generate_from_json", "generate-from-json", "/generate-from-json"),
+    ("app.routes.download", "download", ""),
+]:
+    safe_include(module_path, tag, prefix)
+
 
 @app.get("/health")
 def health():

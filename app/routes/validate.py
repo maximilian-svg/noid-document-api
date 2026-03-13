@@ -1,31 +1,31 @@
-from pathlib import Path
 from fastapi import APIRouter, HTTPException
+
 from app.schemas import ValidateRequest, ValidateResponse
-from app.services.tag_extractor import extract_tags_from_docx
+from app.services.payload_guard import validate_tags_json_against_template
 
 router = APIRouter()
 
-TEMPLATE_DIR = Path("templates")
 
-@router.post("", response_model=ValidateResponse)
-def validate(request: ValidateRequest):
-    template_path = TEMPLATE_DIR / request.template_name
+def _run_validation(request: ValidateRequest) -> ValidateResponse:
+    try:
+        result = validate_tags_json_against_template(
+            template_name=request.template_name,
+            tags_json=request.tags_json,
+        )
+        return ValidateResponse(**result)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Valideringsfel: {e}")
 
-    if not template_path.exists():
-        raise HTTPException(status_code=404, detail="Template not found")
 
-    template_tags = extract_tags_from_docx(str(template_path))
-    incoming_tags = set(request.tags.keys())
+@router.post("/validate", response_model=ValidateResponse)
+def validate_payload_legacy(request: ValidateRequest):
+    return _run_validation(request)
 
-    missing_tags = sorted(list(template_tags - incoming_tags))
-    unknown_tags = sorted(list(incoming_tags - template_tags))
-    empty_tags = sorted([k for k, v in request.tags.items() if str(v).strip() == ""])
 
-    ok = len(missing_tags) == 0 and len(empty_tags) == 0
-
-    return ValidateResponse(
-        ok=ok,
-        missing_tags=missing_tags,
-        unknown_tags=unknown_tags,
-        empty_tags=empty_tags,
-    )
+@router.post("/validate-payload", response_model=ValidateResponse)
+def validate_payload(request: ValidateRequest):
+    return _run_validation(request)
